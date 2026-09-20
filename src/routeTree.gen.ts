@@ -10,33 +10,53 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CityIndexRouteImport } from './routes/city.index'
+import { Route as CityOpportunityRouteImport } from './routes/city.opportunity'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CityIndexRoute = CityIndexRouteImport.update({
+  id: '/city/',
+  path: '/city/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CityOpportunityRoute = CityOpportunityRouteImport.update({
+  id: '/city/opportunity',
+  path: '/city/opportunity',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/city/opportunity': typeof CityOpportunityRoute
+  '/city/': typeof CityIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/city/opportunity': typeof CityOpportunityRoute
+  '/city': typeof CityIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/city/opportunity': typeof CityOpportunityRoute
+  '/city/': typeof CityIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/city/opportunity' | '/city/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/city/opportunity' | '/city'
+  id: '__root__' | '/' | '/city/opportunity' | '/city/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CityOpportunityRoute: typeof CityOpportunityRoute
+  CityIndexRoute: typeof CityIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +68,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/city/': {
+      id: '/city/'
+      path: '/city'
+      fullPath: '/city/'
+      preLoaderRoute: typeof CityIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/city/opportunity': {
+      id: '/city/opportunity'
+      path: '/city/opportunity'
+      fullPath: '/city/opportunity'
+      preLoaderRoute: typeof CityOpportunityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CityOpportunityRoute: CityOpportunityRoute,
+  CityIndexRoute: CityIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
