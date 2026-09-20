@@ -12,6 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CityIndexRouteImport } from './routes/city.index'
 import { Route as CityOpportunityRouteImport } from './routes/city.opportunity'
+import { Route as PublicIndexRouteImport } from './routes/public.index'
+import { Route as PublicProjectIdRouteImport } from './routes/public.project.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -28,35 +30,60 @@ const CityOpportunityRoute = CityOpportunityRouteImport.update({
   path: '/city/opportunity',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PublicIndexRoute = PublicIndexRouteImport.update({
+  id: '/public/',
+  path: '/public/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PublicProjectIdRoute = PublicProjectIdRouteImport.update({
+  id: '/public/project/$id',
+  path: '/public/project/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/city/opportunity': typeof CityOpportunityRoute
   '/city/': typeof CityIndexRoute
+  '/public/': typeof PublicIndexRoute
+  '/public/project/$id': typeof PublicProjectIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/city/opportunity': typeof CityOpportunityRoute
   '/city': typeof CityIndexRoute
+  '/public': typeof PublicIndexRoute
+  '/public/project/$id': typeof PublicProjectIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/city/opportunity': typeof CityOpportunityRoute
   '/city/': typeof CityIndexRoute
+  '/public/': typeof PublicIndexRoute
+  '/public/project/$id': typeof PublicProjectIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/city/opportunity' | '/city/'
+  fullPaths:
+    '/' | '/city/opportunity' | '/city/' | '/public/' | '/public/project/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/city/opportunity' | '/city'
-  id: '__root__' | '/' | '/city/opportunity' | '/city/'
+  to: '/' | '/city/opportunity' | '/city' | '/public' | '/public/project/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/city/opportunity'
+    | '/city/'
+    | '/public/'
+    | '/public/project/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CityOpportunityRoute: typeof CityOpportunityRoute
   CityIndexRoute: typeof CityIndexRoute
+  PublicIndexRoute: typeof PublicIndexRoute
+  PublicProjectIdRoute: typeof PublicProjectIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -82,6 +109,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CityOpportunityRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/public/': {
+      id: '/public/'
+      path: '/public'
+      fullPath: '/public/'
+      preLoaderRoute: typeof PublicIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/public/project/$id': {
+      id: '/public/project/$id'
+      path: '/public/project/$id'
+      fullPath: '/public/project/$id'
+      preLoaderRoute: typeof PublicProjectIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -89,6 +130,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CityOpportunityRoute: CityOpportunityRoute,
   CityIndexRoute: CityIndexRoute,
+  PublicIndexRoute: PublicIndexRoute,
+  PublicProjectIdRoute: PublicProjectIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
