@@ -75,8 +75,48 @@ let lastSignals = [];
 function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
 function escapeHtml(s=''){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
 function iconFor(cat){return {'People & Community':'◉','City Assets':'◆','Infrastructure':'▦','Workforce & Economy':'↗','Operations & Programs':'◎'}[cat]||'•';}
-function saveGenerated(){ if(lastResult){ localStorage.setItem('oneDetroitGenerated',JSON.stringify({result:lastResult,signals:lastSignals,createdAt:new Date().toISOString()})); }}
-function getGenerated(){ try{return JSON.parse(localStorage.getItem('oneDetroitGenerated')||'null')}catch{return null} }
+const PROJECTS_KEY='oneDetroitGeneratedProjects';
+const DRAFT_KEY='oneDetroitDraft';
+let activeProjectId=null;
+
+function makeProjectId(){return 'project-'+Date.now()+'-'+Math.random().toString(36).slice(2,7);}
+function saveDraft(){if(lastResult){localStorage.setItem(DRAFT_KEY,JSON.stringify({result:lastResult,signals:lastSignals,createdAt:new Date().toISOString()}));}}
+function getDraft(){try{return JSON.parse(localStorage.getItem(DRAFT_KEY)||'null')}catch{return null}}
+function getGeneratedProjects(){
+ try{
+  const items=JSON.parse(localStorage.getItem(PROJECTS_KEY)||'[]');
+  if(Array.isArray(items))return items;
+ }catch{}
+ return [];
+}
+function migrateLegacyProject(){
+ try{
+  const legacy=JSON.parse(localStorage.getItem('oneDetroitGenerated')||'null');
+  if(!legacy)return;
+  const current=getGeneratedProjects();
+  if(!current.length){
+   current.push({id:makeProjectId(),...legacy,publishedAt:legacy.createdAt||new Date().toISOString()});
+   localStorage.setItem(PROJECTS_KEY,JSON.stringify(current));
+  }
+  localStorage.removeItem('oneDetroitGenerated');
+ }catch{}
+}
+function publishGenerated(){
+ if(!lastResult)return null;
+ const projects=getGeneratedProjects();
+ const project={id:makeProjectId(),result:lastResult,signals:lastSignals,createdAt:new Date().toISOString(),publishedAt:new Date().toISOString()};
+ projects.unshift(project);
+ localStorage.setItem(PROJECTS_KEY,JSON.stringify(projects));
+ activeProjectId=project.id;
+ return project;
+}
+function getGeneratedProject(id){return getGeneratedProjects().find(p=>p.id===id)||null;}
+function deleteGeneratedProject(id){
+ const projects=getGeneratedProjects().filter(p=>p.id!==id);
+ localStorage.setItem(PROJECTS_KEY,JSON.stringify(projects));
+ if(activeProjectId===id)activeProjectId=null;
+}
+function clearGeneratedProjects(){localStorage.removeItem(PROJECTS_KEY);activeProjectId=null;}
 
 function shell(content, mode=''){app.innerHTML=`<div class="page ${mode}">${content}</div>`; window.scrollTo({top:0,behavior:'smooth'});}
 function go(view){ location.hash=view==='home'?'':view; render(); }
@@ -117,20 +157,20 @@ async function analyze(){
  lastSignals=SIGNALS.filter(s=>selected.has(s.id));
  try{
   const r=await fetch('api/analyze.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({signals:lastSignals,context:$('#context')?.value||''})});
-  const data=await r.json();if(!r.ok)throw new Error(data.error||'Analysis failed');lastResult=data.result;lastResult._source=data.source;lastResult._note=data.note||''; saveGenerated(); go('result');
+  const data=await r.json();if(!r.ok)throw new Error(data.error||'Analysis failed');lastResult=data.result;lastResult._source=data.source;lastResult._note=data.note||''; saveDraft(); go('result');
  }catch(e){toast(e.message);btn.disabled=false;btn.innerHTML='Analyze Opportunity <span>→</span>';}
 }
 
 function chips(items=[]){return `<div class="chips">${items.map(x=>`<span>${escapeHtml(x)}</span>`).join('')}</div>`;}
 function bullet(items=[]){return `<ul>${items.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul>`;}
 function renderResult(){
- const stored=getGenerated(); const r=lastResult||stored?.result; lastSignals=lastSignals.length?lastSignals:(stored?.signals||[]); if(!r)return go('city');
+ const stored=getDraft(); const r=lastResult||stored?.result; lastSignals=lastSignals.length?lastSignals:(stored?.signals||[]); if(!r)return go('city');
  shell(`<div class="result-top"><button class="back" data-go="city">← Edit signals</button><div class="engine-badge ${r._source==='openai'?'live':''}">${r._source==='openai'?'● Live AI analysis':'● Demo fallback'}</div></div>
  <section class="opportunity-hero"><div class="eyebrow">OPPORTUNITY DETECTED</div><h1>${escapeHtml(r.opportunity_name)}</h1><p>${escapeHtml(r.problem_summary)}</p><div class="input-ribbon">${lastSignals.map(s=>`<span>${escapeHtml(s.label)}</span>`).join('<b>+</b>')}</div></section>
  <div class="result-grid"><section class="panel major"><div class="section-kicker">WHY ONE DETROIT FOUND IT</div>${bullet(r.connections_detected)}<div class="section-kicker">SUGGESTED STRATEGY</div><p class="strategy">${escapeHtml(r.recommended_strategy)}</p></section>
  <section class="panel"><div class="section-kicker">FEASIBILITY SNAPSHOT</div><div class="metric"><span>Lead agency</span><b>${escapeHtml(r.lead_agency)}</b></div><div class="metric"><span>Budget</span><b>${escapeHtml(r.estimated_budget)}</b></div><div class="metric"><span>Hot spots</span><b>${escapeHtml((r.hot_spots||[]).join(', '))}</b></div></section></div>
  <div class="detail-grid"><section class="panel"><h3>Agencies & partners</h3>${chips([...(r.supporting_agencies||[]),...(r.partners||[])])}</section><section class="panel"><h3>Existing assets</h3>${bullet(r.existing_assets)}</section><section class="panel"><h3>People & contractors</h3>${bullet([...(r.staffing_needs||[]),...(r.contractor_needs||[])])}</section><section class="panel"><h3>Funding & sustainability</h3>${bullet(r.funding_options)}</section><section class="panel"><h3>Expected outcomes</h3>${bullet(r.expected_outcomes)}</section><section class="panel"><h3>Human review</h3>${bullet(r.assumptions)}</section></div>
- <section class="publish"><div><div class="eyebrow">PUBLIC TRANSPARENCY</div><h2>Turn the analysis into resident language.</h2><p>The same opportunity becomes a clear project page for the public portal.</p></div><button id="publish" class="btn primary xl">Publish Public Version →</button></section>`,'result'); bindNav(); $('#publish').onclick=()=>{saveGenerated();toast('Published to Public Portal');setTimeout(()=>go('public'),450)};
+ <section class="publish"><div><div class="eyebrow">PUBLIC TRANSPARENCY</div><h2>Turn the analysis into resident language.</h2><p>The same opportunity becomes a clear project page for the public portal.</p></div><button id="publish" class="btn primary xl">Publish Public Version →</button></section>`,'result'); bindNav(); $('#publish').onclick=()=>{const p=publishGenerated();if(!p)return;toast('Published to Public Portal');setTimeout(()=>go('public'),450)};
 }
 
 const STATIC_PROJECTS=[
@@ -141,16 +181,23 @@ const STATIC_PROJECTS=[
  {name:'Complete Corridor Upgrade',cat:'Transportation',status:'In Design',summary:'Coordinate street, utility, transit, pedestrian and bike work in one construction cycle.'}
 ];
 function renderPublic(){
- const g=getGenerated();
+ const generated=getGeneratedProjects();
+ const generatedHtml=generated.length?`<section class="generated-section"><div class="generated-head"><div><div class="eyebrow">GENERATED OPPORTUNITIES</div><h2>${generated.length} ${generated.length===1?'project':'projects'} published by One Detroit</h2><p>Each project was created from a different mix of city signals.</p></div><button id="clearGenerated" class="btn ghost danger">Clear demo projects</button></div><div class="generated-grid">${generated.map((g,i)=>`<article class="project-card generated-card"><div class="project-meta"><span>AI-assisted opportunity</span><span>${new Date(g.publishedAt||g.createdAt).toLocaleDateString()}</span></div><div class="new-tag">${i===0?'NEW · ':''}GENERATED BY ONE DETROIT</div><h3>${escapeHtml(g.result.opportunity_name)}</h3><p>${escapeHtml(g.result.public_summary)}</p><div class="generated-actions"><button class="text-btn" data-open-project="${g.id}">View project →</button><button class="delete-project" data-delete-project="${g.id}" aria-label="Delete project">Delete</button></div></article>`).join('')}</div></section>`:'';
  shell(`<div class="public-head"><div><div class="eyebrow">PUBLIC PORTAL</div><h1>What’s happening across Detroit?</h1><p>See projects, programs and opportunities in plain language — including why the city is exploring them.</p></div><button class="btn ghost" data-go="city">City Intelligence</button></div>
- ${g?`<section class="new-project"><div class="new-tag">NEW · GENERATED BY ONE DETROIT</div><div><h2>${escapeHtml(g.result.opportunity_name)}</h2><p>${escapeHtml(g.result.public_summary)}</p></div><button class="btn primary" data-go="project">View project →</button></section>`:''}
- <section class="project-grid">${STATIC_PROJECTS.map(p=>`<article class="project-card"><div class="project-meta"><span>${p.cat}</span><span>${p.status}</span></div><h3>${p.name}</h3><p>${p.summary}</p><button class="text-btn">Learn more →</button></article>`).join('')}</section>`,'public'); bindNav();
+ ${generatedHtml}
+ <section class="static-section"><div class="eyebrow">DEMO PROJECT LIBRARY</div><div class="project-grid">${STATIC_PROJECTS.map(p=>`<article class="project-card"><div class="project-meta"><span>${p.cat}</span><span>${p.status}</span></div><h3>${p.name}</h3><p>${p.summary}</p><button class="text-btn">Learn more →</button></article>`).join('')}</div></section>`,'public');
+ bindNav();
+ $$('[data-open-project]').forEach(b=>b.onclick=()=>{activeProjectId=b.dataset.openProject;go('project');});
+ $$('[data-delete-project]').forEach(b=>b.onclick=(e)=>{e.stopPropagation();const id=b.dataset.deleteProject;if(confirm('Delete this generated demo project?')){deleteGeneratedProject(id);toast('Project deleted');renderPublic();}});
+ const clear=$('#clearGenerated');if(clear)clear.onclick=()=>{if(confirm('Clear all generated demo projects?')){clearGeneratedProjects();toast('Generated demo projects cleared');renderPublic();}};
 }
 function renderProject(){
- const g=getGenerated(); if(!g)return go('public'); const r=g.result;
+ const projects=getGeneratedProjects();
+ const g=(activeProjectId&&getGeneratedProject(activeProjectId))||projects[0]; if(!g)return go('public'); const r=g.result;
  shell(`<button class="back" data-go="public">← Back to projects</button><section class="public-project"><div class="project-meta"><span>One Detroit generated project</span><span>Exploring</span></div><h1>${escapeHtml(r.opportunity_name)}</h1><p class="lead">${escapeHtml(r.public_summary)}</p><div class="public-story"><div><span>WHAT RESIDENTS EXPERIENCE</span><p>${escapeHtml(r.problem_summary)}</p></div><b>→</b><div><span>WHAT ONE DETROIT CONNECTED</span>${chips(g.signals.map(s=>s.label))}</div><b>→</b><div><span>PROPOSED SOLUTION</span><p>${escapeHtml(r.recommended_strategy)}</p></div></div>
  <div class="detail-grid"><section class="panel"><h3>Why this project?</h3>${bullet(r.connections_detected)}</section><section class="panel"><h3>What could improve</h3>${bullet(r.expected_outcomes)}</section><section class="panel"><h3>Potential partners</h3>${chips([r.lead_agency,...(r.supporting_agencies||[]),...(r.partners||[])])}</section><section class="panel"><h3>Possible locations</h3>${chips(r.hot_spots)}</section></div><section class="resident-note"><b>Transparency note</b><p>This is an AI-assisted opportunity for human review, not a final city decision. Agencies, budget, locations and implementation details would need validation.</p></section></section>`,'project'); bindNav();
 }
 function bindNav(){ $$('[data-go]').forEach(el=>el.onclick=()=>go(el.dataset.go)); $$('[data-view]').forEach(el=>el.onclick=()=>go(el.dataset.view)); }
+migrateLegacyProject();
 function render(){const h=location.hash.replace('#',''); if(h==='city')renderCity(); else if(h==='result')renderResult(); else if(h==='public')renderPublic(); else if(h==='project')renderProject(); else renderHome();}
 window.addEventListener('hashchange',render); render();

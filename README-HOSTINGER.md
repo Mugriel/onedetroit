@@ -26,3 +26,11 @@ Do not put the key in JavaScript or GitHub.
 - Maximum selection is 8 signals to keep live demos focused.
 - If the OpenAI API is unavailable, the site uses a demo fallback so the presentation never breaks.
 - The generated project is stored in browser localStorage for the demo; no database is required.
+
+
+## V3 update
+- Multiple generated projects are now preserved in localStorage.
+- Each published project receives its own ID and can be opened individually from the Public Portal.
+- Added Delete Project and Clear Demo Projects controls.
+- Legacy single-project storage is migrated automatically.
+- Cache-busting updated to v=3.
