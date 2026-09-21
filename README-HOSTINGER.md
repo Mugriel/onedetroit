@@ -1,29 +1,28 @@
-# One Detroit — Hostinger/PHP build
-
-This package does **not** require Node.js on the server.
+# One Detroit — Signal Library Hackathon Build
 
 ## Upload
-1. Create a new subdomain in Hostinger, for example `onedetroit.yourdomain.com`.
-2. Upload the **contents** of this folder into that subdomain's `public_html`.
-3. Open the subdomain. The demo works immediately with a mock fallback engine.
+Upload the **contents** of this folder to the subdomain's `public_html`.
 
-## Enable live OpenAI analysis
-1. In `private/`, copy `config.example.php` to `config.php`.
-2. Edit `private/config.php` on the server and paste your OpenAI project API key in `openai_api_key`.
-3. Do **not** commit `private/config.php` to GitHub.
-4. The `/private/.htaccess` file blocks browser access to that folder on Apache/LiteSpeed.
+## OpenAI key
+Edit `private/config.php` and set:
 
-The API call is server-side at `api/analyze.php`; the browser never receives the API key.
+```php
+'openai_api_key' => 'YOUR_KEY_HERE',
+```
 
-## Hackathon demo flow
-1. Open City Intelligence.
-2. Pick a preset or choose **Custom Opportunity**.
-3. Edit/add/remove inputs live.
-4. Edit delivery constraints such as budget, staffing, agencies, contractors, partners, funding and hotspot hints.
+Do not put the key in JavaScript or GitHub.
+
+## Demo flow
+1. Open **City Intelligence**.
+2. Use a **Quick demo combo**, **Surprise Me**, or pick signals manually.
+3. Select 3–6 signals from different categories.
+4. Optionally add one sentence of context.
 5. Click **Analyze Opportunity**.
-6. One Detroit returns a new opportunity.
-7. Click **Generate Public Version**.
-8. The new project is saved in the browser and appears immediately in the Public Portal.
+6. Confirm the result badge says **Live AI analysis**.
+7. Click **Publish Public Version**.
+8. The generated project appears at the top of the **Public Portal**.
 
-## Reset demo-generated projects
-Use the `Reset demo` button in City Intelligence or clear the site's localStorage.
+## Notes
+- Maximum selection is 8 signals to keep live demos focused.
+- If the OpenAI API is unavailable, the site uses a demo fallback so the presentation never breaks.
+- The generated project is stored in browser localStorage for the demo; no database is required.

@@ -1,125 +1,156 @@
-(() => {
-  const scenarios = window.ONE_DETROIT_SCENARIOS || [];
-  const app = document.getElementById('app');
-  const GENERATED_KEY = 'oneDetroitGeneratedProjectsV2';
-  const LAST_RESULT_KEY = 'oneDetroitLastResultV2';
-  const DRAFT_KEY = 'oneDetroitDraftV2';
+const SIGNALS = [
+  // People & Community
+  {id:'youth-unemployment',category:'People & Community',kind:'need',label:'Youth unemployment',source:'Detroit at Work / workforce data',detail:'Youth employment demand is elevated in selected neighborhoods.'},
+  {id:'senior-digital-gap',category:'People & Community',kind:'need',label:'Senior digital access gap',source:'Libraries / community services',detail:'Older residents report difficulty using digital services and applications.'},
+  {id:'low-participation',category:'People & Community',kind:'need',label:'Low program participation',source:'Program enrollment data',detail:'Eligible residents are not consistently participating in available programs.'},
+  {id:'heat-exposure',category:'People & Community',kind:'need',label:'High heat exposure',source:'Health / heat mapping',detail:'Residents experience elevated summer heat exposure.'},
+  {id:'low-transit-access',category:'People & Community',kind:'need',label:'Low transit access',source:'DDOT / mobility data',detail:'Residents have limited access to frequent transit.'},
+  {id:'food-gap',category:'People & Community',kind:'need',label:'Food access gap',source:'Health / food access data',detail:'Fresh food access is limited within a convenient travel distance.'},
+  {id:'skills-mismatch',category:'People & Community',kind:'need',label:'Skills mismatch',source:'Workforce / employer surveys',detail:'Resident skills and available job requirements do not fully align.'},
+  {id:'renter-burden',category:'People & Community',kind:'need',label:'High renter burden',source:'Housing data',detail:'A high share of household income is spent on rent.'},
+  {id:'after-school-gap',category:'People & Community',kind:'need',label:'Limited after-school options',source:'Youth services',detail:'Young residents have limited nearby structured after-school activities.'},
+  {id:'low-public-space-use',category:'People & Community',kind:'need',label:'Low public-space usage',source:'Parks / observational data',detail:'Existing public spaces show low use during significant portions of the day.'},
+  // City Assets
+  {id:'library-space',category:'City Assets',kind:'asset',label:'Underused library space',source:'Detroit Public Library',detail:'Library rooms or program blocks are available during portions of the week.'},
+  {id:'vacant-lot',category:'City Assets',kind:'asset',label:'Vacant lot',source:'Detroit Land Bank / parcel data',detail:'City-controlled or vacant parcels may be available for reuse.'},
+  {id:'retired-vehicles',category:'City Assets',kind:'asset',label:'Retired vehicle inventory',source:'General Services / fleet',detail:'Retired or donated vehicles may have training or reuse value before disposal.'},
+  {id:'empty-public-building',category:'City Assets',kind:'asset',label:'Empty public building',source:'Facilities inventory',detail:'A public building has underused or vacant space.'},
+  {id:'unused-parking',category:'City Assets',kind:'asset',label:'Unused parking lot',source:'Facilities / parking inventory',detail:'Parking capacity is underused at predictable times.'},
+  {id:'underused-rec-center',category:'City Assets',kind:'asset',label:'Underused recreation center',source:'Parks & Recreation',detail:'Recreation center rooms have available programming capacity.'},
+  {id:'school-after-hours',category:'City Assets',kind:'asset',label:'School space after hours',source:'School district facilities',detail:'Selected school spaces may be available outside instructional hours.'},
+  {id:'city-land',category:'City Assets',kind:'asset',label:'Available city-owned land',source:'City parcel inventory',detail:'Public land may be available for pilot uses.'},
+  {id:'cooling-center',category:'City Assets',kind:'asset',label:'Existing cooling center',source:'Health / facilities',detail:'Cooling facilities exist but may not align with highest heat exposure.'},
+  {id:'community-kitchen',category:'City Assets',kind:'asset',label:'Existing community kitchen',source:'Community facility inventory',detail:'Licensed or community kitchen capacity is available during some periods.'},
+  // Infrastructure
+  {id:'road-resurfacing',category:'Infrastructure',kind:'project',label:'Planned road resurfacing',source:'DPW capital plan',detail:'Road resurfacing is already scheduled in the near term.'},
+  {id:'utility-work',category:'Infrastructure',kind:'project',label:'Utility work scheduled',source:'DWSD / utility coordination',detail:'Utility work will require opening or occupying the same corridor.'},
+  {id:'frequent-flooding',category:'Infrastructure',kind:'need',label:'Frequent flooding',source:'DWSD / 311 / stormwater data',detail:'Localized flooding or basement flooding is repeatedly reported.'},
+  {id:'poor-tree-canopy',category:'Infrastructure',kind:'need',label:'Poor tree canopy',source:'Parks / canopy mapping',detail:'Tree canopy coverage is substantially below city averages.'},
+  {id:'damaged-sidewalks',category:'Infrastructure',kind:'need',label:'Damaged sidewalks',source:'DPW / accessibility reports',detail:'Sidewalk condition limits safe pedestrian movement.'},
+  {id:'no-shelter-stop',category:'Infrastructure',kind:'need',label:'Transit stop without shelter',source:'DDOT stop inventory',detail:'High-use stops lack shelter or comfortable waiting areas.'},
+  {id:'bike-gap',category:'Infrastructure',kind:'need',label:'Bike-network gap',source:'Mobility plan',detail:'A missing connection interrupts the existing bike network.'},
+  {id:'streetlight-complaints',category:'Infrastructure',kind:'need',label:'Streetlight complaints',source:'Public lighting / 311',detail:'Repeated lighting complaints are concentrated in the area.'},
+  {id:'high-crash-corridor',category:'Infrastructure',kind:'need',label:'High-crash corridor',source:'Traffic safety data',detail:'The corridor has repeated crashes involving vulnerable road users.'},
+  {id:'drainage-maintenance',category:'Infrastructure',kind:'need',label:'Drainage maintenance need',source:'DWSD maintenance data',detail:'Drainage assets show recurring service or maintenance demand.'},
+  // Workforce & Economy
+  {id:'auto-tech-demand',category:'Workforce & Economy',kind:'demand',label:'Automotive technician demand',source:'Employer / workforce data',detail:'Employers report demand for entry-level and experienced technicians.'},
+  {id:'ev-demand',category:'Workforce & Economy',kind:'demand',label:'EV skills demand',source:'Mobility employers',detail:'Employers report growing need for EV systems and diagnostics skills.'},
+  {id:'vendor-demand',category:'Workforce & Economy',kind:'demand',label:'Small vendor demand',source:'Business / event applications',detail:'Local vendors need affordable places to sell products and services.'},
+  {id:'summer-jobs',category:'Workforce & Economy',kind:'demand',label:'Youth summer job demand',source:'Youth employment programs',detail:'Demand for paid youth summer work exceeds available placements.'},
+  {id:'contractor-shortage',category:'Workforce & Economy',kind:'need',label:'Contractor shortage',source:'Procurement / project data',detail:'Projects experience limited contractor capacity in a needed specialty.'},
+  {id:'mentoring-gap',category:'Workforce & Economy',kind:'need',label:'Small-business mentoring gap',source:'Small business services',detail:'Entrepreneurs need accessible mentoring and technical assistance.'},
+  {id:'health-workforce',category:'Workforce & Economy',kind:'demand',label:'Healthcare workforce demand',source:'Regional employer data',detail:'Healthcare employers report persistent workforce demand.'},
+  {id:'construction-workforce',category:'Workforce & Economy',kind:'demand',label:'Construction workforce demand',source:'Capital program / employers',detail:'Construction pipeline requires additional trained workers.'},
+  {id:'commercial-vacancy',category:'Workforce & Economy',kind:'asset',label:'Commercial vacancy',source:'Property / corridor data',detail:'Commercial spaces are vacant or underused.'},
+  {id:'local-procurement',category:'Workforce & Economy',kind:'opportunity',label:'Local procurement opportunity',source:'Procurement data',detail:'Upcoming purchasing could potentially be matched with local suppliers.'},
+  // Operations & Programs
+  {id:'grant-available',category:'Operations & Programs',kind:'asset',label:'Available grant funding',source:'Grants office',detail:'A funding source is available for eligible pilot activities.'},
+  {id:'grant-expiring',category:'Operations & Programs',kind:'constraint',label:'Expiring grant',source:'Grants office',detail:'Funding must be committed within a limited time window.'},
+  {id:'low-performing-program',category:'Operations & Programs',kind:'need',label:'Low-performing program',source:'Program performance data',detail:'An existing program is not achieving intended participation or outcomes.'},
+  {id:'duplicate-services',category:'Operations & Programs',kind:'opportunity',label:'Duplicate city services',source:'Service inventory',detail:'Multiple programs appear to address similar needs independently.'},
+  {id:'long-wait-time',category:'Operations & Programs',kind:'need',label:'Long service wait time',source:'Service operations',detail:'Residents experience long waits for a city or partner service.'},
+  {id:'high-311',category:'Operations & Programs',kind:'need',label:'High 311 concentration',source:'Detroit 311',detail:'Repeated service requests are concentrated geographically.'},
+  {id:'nonprofit-partner',category:'Operations & Programs',kind:'asset',label:'Available nonprofit partner',source:'Partner directory',detail:'A nonprofit partner has relevant staff, facilities, or program capacity.'},
+  {id:'employer-partner',category:'Operations & Programs',kind:'asset',label:'Employer partnership available',source:'Workforce partnerships',detail:'An employer is willing to support training, mentorship, placement, or sponsorship.'},
+  {id:'college-partner',category:'Operations & Programs',kind:'asset',label:'Community college partnership',source:'Education partnerships',detail:'A community college can provide curriculum, instructors, or credential pathways.'},
+  {id:'seasonal-event',category:'Operations & Programs',kind:'demand',label:'Seasonal event demand',source:'Events / permits',detail:'Neighborhood event demand creates a predictable seasonal need for space and services.'}
+];
 
-  const esc = (v='') => String(v).replace(/[&<>'"]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[m]));
-  const arr = v => Array.isArray(v) ? v : [];
-  const route = () => location.hash.replace(/^#/, '') || '/';
-  const go = p => { location.hash = p; };
-  const getScenario = id => scenarios.find(s => s.id === id) || scenarios[0];
-  const generated = () => { try{return JSON.parse(localStorage.getItem(GENERATED_KEY)||'[]')}catch{return []} };
-  const saveGenerated = items => localStorage.setItem(GENERATED_KEY, JSON.stringify(items));
-  const getLast = () => { try{return JSON.parse(sessionStorage.getItem(LAST_RESULT_KEY)||'null')}catch{return null} };
-  const setLast = x => sessionStorage.setItem(LAST_RESULT_KEY, JSON.stringify(x));
-  const getDraft = () => { try{return JSON.parse(sessionStorage.getItem(DRAFT_KEY)||'null')}catch{return null} };
-  const setDraft = x => sessionStorage.setItem(DRAFT_KEY, JSON.stringify(x));
+const QUICK = [
+  {id:'mobility',name:'Mobility Learning',desc:'Turn unused assets into a skills pipeline.',signals:['retired-vehicles','library-space','after-school-gap','ev-demand','employer-partner']},
+  {id:'cool',name:'Cool Neighborhood',desc:'Heat, youth activity and public assets.',signals:['poor-tree-canopy','heat-exposure','cooling-center','school-after-hours','grant-available']},
+  {id:'digital',name:'Digital Help',desc:'Connect digital access, youth jobs and libraries.',signals:['senior-digital-gap','library-space','summer-jobs','low-participation','nonprofit-partner']},
+  {id:'market',name:'Floodable Market',desc:'Make vacant land serve commerce and resilience.',signals:['vacant-lot','frequent-flooding','vendor-demand','seasonal-event','drainage-maintenance']},
+  {id:'corridor',name:'Complete Corridor',desc:'Coordinate projects before the street is opened twice.',signals:['road-resurfacing','utility-work','high-crash-corridor','bike-gap','no-shelter-stop']}
+];
 
-  function header(mode=''){
-    return `<header class="topbar"><div class="shell topbar-inner">
-      <a class="brand" href="#/"><span class="brand-mark">1D</span><span>One Detroit</span></a>
-      ${mode?`<span class="mode-badge">${mode==='city'?'City Intelligence':'Public Portal'}</span>`:''}
-      <span class="nav-spacer"></span>
-      ${mode==='city'?'<a class="nav-link" href="#/public">Public Portal</a>':mode==='public'?'<a class="nav-link" href="#/city">City Intelligence</a>':''}
-    </div></header>`;
-  }
-  const footer=()=>`<footer class="footer"><div class="shell">One Detroit · Hackathon MVP · Human-reviewed civic decision support</div></footer>`;
-  const core=()=>`<div class="core-message">The city sees disconnected data. Residents experience disconnected problems. <b>One Detroit turns both into coordinated solutions.</b></div>`;
+const $ = (q,root=document)=>root.querySelector(q);
+const $$ = (q,root=document)=>[...root.querySelectorAll(q)];
+const app = $('#app');
+let selected = new Set(['retired-vehicles','library-space','after-school-gap','ev-demand','employer-partner']);
+let category = 'All';
+let lastResult = null;
+let lastSignals = [];
 
-  function landing(){
-    app.innerHTML = `${header()}<section class="hero"><div class="shell hero-grid"><div>
-      <div class="eyebrow">Civic intelligence platform</div><h1>Different data. A stronger Detroit.</h1>
-      <p>One city. One intelligence layer. Two experiences — a workspace for city teams and a transparent portal for residents.</p>
-      <div class="hero-actions">
-        <a class="choice primary" href="#/city"><h3>City Intelligence</h3><p>Connect signals, edit assumptions, run the Opportunity Engine, and design coordinated interventions.</p><span class="arrow">→</span></a>
-        <a class="choice" href="#/public"><h3>Public Portal</h3><p>Explore projects, programs, upcoming opportunities, and the reason behind proposed interventions.</p><span class="arrow">→</span></a>
-      </div></div>
-      <div class="hero-card"><div class="eyebrow">How it works</div><strong>Disconnected systems become shared context.</strong><p>One Detroit looks across needs, public assets, budgets, agencies, contractors, partners and hotspots — then suggests one coordinated opportunity for human review.</p>${core()}</div>
-    </div></section><div class="shell"><div class="core-message"><b>One intervention. Multiple outcomes.</b> The demo is designed to show the full path from editable inputs → AI opportunity → public-facing project.</div></div>${footer()}`;
-  }
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
+function escapeHtml(s=''){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+function iconFor(cat){return {'People & Community':'◉','City Assets':'◆','Infrastructure':'▦','Workforce & Economy':'↗','Operations & Programs':'◎'}[cat]||'•';}
+function saveGenerated(){ if(lastResult){ localStorage.setItem('oneDetroitGenerated',JSON.stringify({result:lastResult,signals:lastSignals,createdAt:new Date().toISOString()})); }}
+function getGenerated(){ try{return JSON.parse(localStorage.getItem('oneDetroitGenerated')||'null')}catch{return null} }
 
-  function draftFromScenario(id){
-    if(id==='custom') return {scenarioId:'custom',scenario_name:'Custom Opportunity',category:'Community',datasets:[
-      {name:'Underused public asset',source:'City asset inventory',detail:'Describe the available asset or capacity'},
-      {name:'Unmet resident need',source:'Community or program data',detail:'Describe the need or gap'},
-      {name:'Potential partner capability',source:'Partner / workforce data',detail:'Describe a complementary capability'}
-    ],delivery_context:{budget:'',staffing:'',agencies:'',lead_agency:'',contractors:'',partners:'',funding:'',hotspots:'',sustainability:''},fallback_result:null};
-    const s=getScenario(id);
-    return {scenarioId:s.id,scenario_name:s.name,category:s.category,datasets:JSON.parse(JSON.stringify(s.datasets)),delivery_context:{budget:s.result.estimated_budget.replace(/\s*—.*$/,''),staffing:s.result.staffing_needs.join('; '),agencies:s.result.supporting_agencies.join(', '),lead_agency:s.result.lead_agency,contractors:s.result.contractor_needs.join('; '),partners:s.result.partners.join(', '),funding:s.result.funding_options.join('; '),hotspots:s.result.hot_spots.join(', '),sustainability:s.sustainability},fallback_result:s.result};
-  }
+function shell(content, mode=''){app.innerHTML=`<div class="page ${mode}">${content}</div>`; window.scrollTo({top:0,behavior:'smooth'});}
+function go(view){ location.hash=view==='home'?'':view; render(); }
 
-  function city(){
-    let draft=getDraft() || draftFromScenario(scenarios[0].id);
-    setDraft(draft);
-    app.innerHTML=`${header('city')}<main class="page"><div class="shell">
-      <div class="page-head"><div><div class="eyebrow">Opportunity workspace</div><h1>Find what separate systems cannot see alone.</h1><p>Edit the signals live. Add a completely new scenario. Then let One Detroit connect the dots and produce a city strategy plus a resident-facing version.</p></div><button id="analyzeTop" class="button">Analyze Opportunity</button></div>
-      <div class="workspace">
-        <aside class="card card-pad"><div class="section-title">Scenario</div><div id="scenarioList" class="scenario-list"></div><button id="resetDemo" class="button danger small" style="margin-top:14px;width:100%">Reset demo</button></aside>
-        <section class="stack"><div class="card card-pad"><div class="title-row"><input id="scenarioName" class="input" value="${esc(draft.scenario_name)}" style="font-size:20px;font-weight:800;color:var(--navy)"><span class="pill">Editable</span></div>
-          <div style="margin-top:10px;max-width:260px"><div class="field"><label>Category</label><select id="category" class="select">${['Environment','Education','Transportation','Community Spaces','Workforce','Community'].map(x=>`<option ${x===draft.category?'selected':''}>${x}</option>`).join('')}</select></div></div>
-          <div class="section-title" style="margin-top:20px">Independent input signals</div><div id="datasetList" class="dataset-list"></div><button id="addSignal" class="add-signal">+ Add another signal</button></div>
-          <div class="card card-pad"><div class="section-title">Opportunity map — illustrative</div><div class="mapbox"><div class="map-shape"></div><div id="hotspotMap" class="hotspot-wrap"></div></div></div>
-        </section>
-        <aside class="stack"><div class="card card-pad"><div class="section-title">Feasibility context</div><div class="context-grid" id="contextFields"></div></div>
-          <div class="card card-pad"><div class="section-title">Engine flow</div><div class="process">${['Inputs','Contextualize','Cross-system analysis','Detect opportunity','Feasibility','Strategy','Public translation'].map((x,i)=>`<div class="process-step ${i===0?'on':''}"><i>${i+1}</i><span>${x}</span></div>`).join('')}</div><div id="loading" class="loading"><span class="spinner"></span>Connecting city signals…</div></div>
-        </aside>
-      </div>
-    </div></main>${footer()}`;
+function renderHome(){
+ shell(`<section class="hero">
+   <div class="hero-copy"><div class="eyebrow">CIVIC INTELLIGENCE PLATFORM</div><h1>Different data.<br><span>A stronger Detroit.</span></h1><p>Connect city signals that normally live apart, discover coordinated opportunities, and explain the result clearly to residents.</p><div class="hero-actions"><button class="btn primary" data-go="city">Open City Intelligence</button><button class="btn ghost" data-go="public">Explore Public Portal</button></div></div>
+   <div class="hero-card"><div class="mini-label">THE ONE DETROIT LOOP</div><div class="loop"><span>Disconnected signals</span><b>→</b><span>Opportunity Engine</span><b>→</b><span>Coordinated strategy</span><b>→</b><span>Public transparency</span></div><div class="big-quote">One intervention.<br>Multiple outcomes.</div></div>
+ </section>
+ <section class="statement"><strong>The city sees disconnected data.</strong><strong>Residents experience disconnected problems.</strong><strong>One Detroit turns both into coordinated solutions.</strong></section>`,'home');
+ bindNav();
+}
 
-    const list=document.getElementById('scenarioList');
-    const renderScenarioButtons=()=>{list.innerHTML=scenarios.map(s=>`<button class="scenario-btn ${draft.scenarioId===s.id?'active':''}" data-id="${s.id}"><b>${esc(s.name)}</b><span>${esc(s.category)} · ${s.datasets.length} signals</span></button>`).join('')+`<button class="scenario-btn custom ${draft.scenarioId==='custom'?'active':''}" data-id="custom"><b>+ Custom Opportunity</b><span>Create a new set of unrelated signals</span></button>`;
-      list.querySelectorAll('button').forEach(b=>b.onclick=()=>{draft=draftFromScenario(b.dataset.id);setDraft(draft);city();});};
-    renderScenarioButtons();
+function renderCity(){
+ const cats=['All',...new Set(SIGNALS.map(s=>s.category))];
+ shell(`<div class="city-head"><div><div class="eyebrow">CITY INTELLIGENCE</div><h1>Build an opportunity in seconds.</h1><p>Pick 3–6 signals from different systems. One Detroit looks for a coordinated intervention.</p></div><div class="selected-count"><b id="selCount">${selected.size}</b><span>signals selected</span></div></div>
+ <section class="panel quick-panel"><div class="panel-title"><div><span class="step">01</span><h2>Quick demo combos</h2></div><button id="surprise" class="btn spark">✦ Surprise Me</button></div><div class="quick-grid">${QUICK.map(q=>`<button class="quick-card" data-quick="${q.id}"><b>${q.name}</b><span>${q.desc}</span></button>`).join('')}</div></section>
+ <section class="panel"><div class="panel-title"><div><span class="step">02</span><h2>Signal Library</h2></div><span class="hint">Tap cards to select. Mix unrelated systems.</span></div>
+ <div class="filters">${cats.map(c=>`<button class="filter ${c===category?'active':''}" data-cat="${c}">${c}</button>`).join('')}</div>
+ <div id="signalGrid" class="signal-grid">${signalCards()}</div>
+ </section>
+ <section class="panel context-panel"><div class="panel-title"><div><span class="step">03</span><h2>Optional context</h2></div><span class="hint">Only if you want to steer the demo.</span></div><textarea id="context" placeholder="Example: Prioritize a 6-month pilot under $500k, reuse existing assets, and focus on neighborhoods with the largest access gaps."></textarea></section>
+ <div class="analyze-bar"><div><span id="chosenPreview">${selectedPreview()}</span></div><button id="analyze" class="btn primary xl">Analyze Opportunity <span>→</span></button></div>`,'city');
+ bindNav(); bindCity();
+}
+function signalCards(){return SIGNALS.filter(s=>category==='All'||s.category===category).map(s=>`<button class="signal-card ${selected.has(s.id)?'selected':''}" data-signal="${s.id}"><div class="sig-top"><span class="sig-icon">${iconFor(s.category)}</span><span class="sig-cat">${s.category}</span><span class="check">✓</span></div><b>${s.label}</b><small>${s.source}</small></button>`).join('');}
+function selectedPreview(){const a=SIGNALS.filter(s=>selected.has(s.id)).slice(0,4).map(s=>s.label);return a.join(' · ')+(selected.size>4?` · +${selected.size-4} more`:'');}
+function bindCity(){
+ $$('.filter').forEach(b=>b.onclick=()=>{category=b.dataset.cat; renderCity();});
+ $$('[data-signal]').forEach(b=>b.onclick=()=>{const id=b.dataset.signal;if(selected.has(id))selected.delete(id);else if(selected.size<8)selected.add(id);else return toast('Keep the live demo focused: max 8 signals.'); b.classList.toggle('selected'); $('#selCount').textContent=selected.size; $('#chosenPreview').textContent=selectedPreview();});
+ $$('[data-quick]').forEach(b=>b.onclick=()=>{const q=QUICK.find(x=>x.id===b.dataset.quick);selected=new Set(q.signals);renderCity();toast(`${q.name} loaded`);});
+ $('#surprise').onclick=()=>{const byCat={}; SIGNALS.forEach(s=>(byCat[s.category]??=[]).push(s)); const picks=[]; Object.values(byCat).forEach(arr=>picks.push(arr[Math.floor(Math.random()*arr.length)].id)); selected=new Set(picks); renderCity(); toast('Unexpected cross-system mix loaded');};
+ $('#analyze').onclick=analyze;
+}
+async function analyze(){
+ if(selected.size<2)return toast('Select at least two signals.');
+ const btn=$('#analyze');btn.disabled=true;btn.innerHTML='Connecting city signals <span class="dots">•••</span>';
+ lastSignals=SIGNALS.filter(s=>selected.has(s.id));
+ try{
+  const r=await fetch('api/analyze.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({signals:lastSignals,context:$('#context')?.value||''})});
+  const data=await r.json();if(!r.ok)throw new Error(data.error||'Analysis failed');lastResult=data.result;lastResult._source=data.source;lastResult._note=data.note||''; saveGenerated(); go('result');
+ }catch(e){toast(e.message);btn.disabled=false;btn.innerHTML='Analyze Opportunity <span>→</span>';}
+}
 
-    const ds=document.getElementById('datasetList');
-    const renderDatasets=()=>{ds.innerHTML=draft.datasets.map((d,i)=>`<div class="dataset-card"><div class="dataset-top"><div class="field"><label>Signal / dataset</label><input class="input ds-name" data-i="${i}" value="${esc(d.name)}"></div><div class="field"><label>Source / system</label><input class="input ds-source" data-i="${i}" value="${esc(d.source)}"></div><button class="remove" data-i="${i}" title="Remove">×</button></div><div class="field dataset-detail"><label>What does the signal say?</label><textarea class="textarea ds-detail" data-i="${i}">${esc(d.detail)}</textarea></div></div>`).join('');
-      ds.querySelectorAll('.remove').forEach(x=>x.onclick=()=>{draft.datasets.splice(+x.dataset.i,1);setDraft(draft);renderDatasets();});
-      ['name','source','detail'].forEach(k=>ds.querySelectorAll(`.ds-${k}`).forEach(el=>el.oninput=()=>{draft.datasets[+el.dataset.i][k]=el.value;setDraft(draft);}));};
-    renderDatasets();
-    document.getElementById('addSignal').onclick=()=>{draft.datasets.push({name:'New signal',source:'Another city / partner system',detail:'Describe what this system knows'});setDraft(draft);renderDatasets();};
+function chips(items=[]){return `<div class="chips">${items.map(x=>`<span>${escapeHtml(x)}</span>`).join('')}</div>`;}
+function bullet(items=[]){return `<ul>${items.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul>`;}
+function renderResult(){
+ const stored=getGenerated(); const r=lastResult||stored?.result; lastSignals=lastSignals.length?lastSignals:(stored?.signals||[]); if(!r)return go('city');
+ shell(`<div class="result-top"><button class="back" data-go="city">← Edit signals</button><div class="engine-badge ${r._source==='openai'?'live':''}">${r._source==='openai'?'● Live AI analysis':'● Demo fallback'}</div></div>
+ <section class="opportunity-hero"><div class="eyebrow">OPPORTUNITY DETECTED</div><h1>${escapeHtml(r.opportunity_name)}</h1><p>${escapeHtml(r.problem_summary)}</p><div class="input-ribbon">${lastSignals.map(s=>`<span>${escapeHtml(s.label)}</span>`).join('<b>+</b>')}</div></section>
+ <div class="result-grid"><section class="panel major"><div class="section-kicker">WHY ONE DETROIT FOUND IT</div>${bullet(r.connections_detected)}<div class="section-kicker">SUGGESTED STRATEGY</div><p class="strategy">${escapeHtml(r.recommended_strategy)}</p></section>
+ <section class="panel"><div class="section-kicker">FEASIBILITY SNAPSHOT</div><div class="metric"><span>Lead agency</span><b>${escapeHtml(r.lead_agency)}</b></div><div class="metric"><span>Budget</span><b>${escapeHtml(r.estimated_budget)}</b></div><div class="metric"><span>Hot spots</span><b>${escapeHtml((r.hot_spots||[]).join(', '))}</b></div></section></div>
+ <div class="detail-grid"><section class="panel"><h3>Agencies & partners</h3>${chips([...(r.supporting_agencies||[]),...(r.partners||[])])}</section><section class="panel"><h3>Existing assets</h3>${bullet(r.existing_assets)}</section><section class="panel"><h3>People & contractors</h3>${bullet([...(r.staffing_needs||[]),...(r.contractor_needs||[])])}</section><section class="panel"><h3>Funding & sustainability</h3>${bullet(r.funding_options)}</section><section class="panel"><h3>Expected outcomes</h3>${bullet(r.expected_outcomes)}</section><section class="panel"><h3>Human review</h3>${bullet(r.assumptions)}</section></div>
+ <section class="publish"><div><div class="eyebrow">PUBLIC TRANSPARENCY</div><h2>Turn the analysis into resident language.</h2><p>The same opportunity becomes a clear project page for the public portal.</p></div><button id="publish" class="btn primary xl">Publish Public Version →</button></section>`,'result'); bindNav(); $('#publish').onclick=()=>{saveGenerated();toast('Published to Public Portal');setTimeout(()=>go('public'),450)};
+}
 
-    const fields=[['budget','Budget context'],['staffing','Employees / capacity'],['lead_agency','Potential lead'],['agencies','Agencies'],['contractors','Contractors / vendors'],['partners','Partners'],['funding','Funding / business model'],['hotspots','Hot spot hints'],['sustainability','Sustainability']];
-    const cf=document.getElementById('contextFields'); cf.innerHTML=fields.map(([k,l])=>`<div class="field"><label>${l}</label><textarea class="textarea ctx" data-k="${k}" style="min-height:58px">${esc(draft.delivery_context[k]||'')}</textarea></div>`).join('');
-    cf.querySelectorAll('.ctx').forEach(el=>el.oninput=()=>{draft.delivery_context[el.dataset.k]=el.value;setDraft(draft);renderHotspots();});
-    const renderHotspots=()=>{const h=(draft.delivery_context.hotspots||'').split(',').map(x=>x.trim()).filter(Boolean);document.getElementById('hotspotMap').innerHTML=(h.length?h:['Editable hotspot hints']).map(x=>`<span class="hotspot">${esc(x)}</span>`).join('');};renderHotspots();
-    document.getElementById('scenarioName').oninput=e=>{draft.scenario_name=e.target.value;setDraft(draft)};
-    document.getElementById('category').onchange=e=>{draft.category=e.target.value;setDraft(draft)};
-    document.getElementById('resetDemo').onclick=()=>{sessionStorage.removeItem(DRAFT_KEY);sessionStorage.removeItem(LAST_RESULT_KEY);localStorage.removeItem(GENERATED_KEY);draft=draftFromScenario(scenarios[0].id);setDraft(draft);city();};
-    const analyze=async()=>{if(draft.datasets.length<2){alert('Add at least two signals so the engine can look for a cross-system opportunity.');return;}document.getElementById('loading').classList.add('show');document.querySelectorAll('.button').forEach(b=>b.disabled=true);
-      try{const r=await fetch('/api/analyze.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(draft)});const data=await r.json();if(!data.ok)throw new Error(data.error||'Analysis failed');setLast({source:data.source,note:data.note||'',model:data.model||'',result:data.result,draft,createdAt:new Date().toISOString()});go('/city/opportunity');}catch(e){alert('Could not run the Opportunity Engine: '+e.message);document.getElementById('loading').classList.remove('show');document.querySelectorAll('.button').forEach(b=>b.disabled=false);}};
-    document.getElementById('analyzeTop').onclick=analyze;
-  }
-
-  function bullets(items){return `<ul class="list">${arr(items).map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`}
-  function resultPage(){const x=getLast();if(!x){go('/city');return;}const r=x.result,d=x.draft;app.innerHTML=`${header('city')}<main class="page"><div class="shell"><a class="nav-link" href="#/city">← Back to workspace</a><div style="height:14px"></div>
-    <section class="result-hero"><div class="eyebrow">Opportunity detected</div><h1>${esc(r.opportunity_name)}</h1><p>${esc(r.problem_summary)}</p><span class="source-note">Engine: ${x.source==='openai'?'Live AI analysis':'Demo fallback'}${x.model?' · '+esc(x.model):''}</span>${x.note?`<span class="source-note" style="margin-left:6px">${esc(x.note)}</span>`:''}</section>
-    <div class="result-grid"><div class="stack">
-      <section class="card card-pad"><div class="section-title">What One Detroit connected</div>${bullets(r.connections_detected)}</section>
-      <section class="card card-pad"><div class="section-title">Suggested coordinated strategy</div><p style="line-height:1.6;margin:0">${esc(r.recommended_strategy)}</p></section>
-      <section class="card card-pad"><div class="section-title">Expected multi-system outcomes</div>${bullets(r.expected_outcomes)}</section>
-      <section class="card card-pad"><div class="section-title">Evidence & assumptions</div><div class="context-grid"><div><b>Evidence used</b>${bullets(r.evidence_used)}</div><div><b>Human review required</b>${bullets(r.assumptions)}</div></div></section>
-    </div><aside class="stack"><section class="card card-pad"><div class="section-title">Feasibility summary</div><div class="feasibility">
-      ${[['Budget',r.estimated_budget],['Lead',r.lead_agency],['Hot spots',arr(r.hot_spots).join(', ')],['Staffing',arr(r.staffing_needs).join('; ')],['Agencies',arr(r.supporting_agencies).join(', ')],['Contractors',arr(r.contractor_needs).join('; ')],['Partners',arr(r.partners).join(', ')],['Funding',arr(r.funding_options).join('; ')]].map(([a,b])=>`<div class="mini"><span>${esc(a)}</span><b>${esc(b)}</b></div>`).join('')}
-    </div></section><section class="card card-pad"><div class="section-title">Existing assets</div>${bullets(r.existing_assets)}</section></aside></div>
-    <div class="publish-bar"><div><b>Translate this city strategy into a resident-facing project.</b><p>The public version keeps the reason, solution, programs and status — without exposing internal technical detail.</p></div><button id="publish" class="button green">Generate Public Version</button></div>
-    </div></main>${footer()}`;
-    document.getElementById('publish').onclick=()=>{const id='generated-'+Date.now();const publicProject={id,name:r.opportunity_name,category:d.category||'Community',status:'Exploring',resident_summary:r.public_summary,generated:true,createdAt:new Date().toISOString(),result:r,datasets:d.datasets,publicView:{why:r.problem_summary,today:`Residents currently experience separate issues represented by ${d.datasets.slice(0,4).map(z=>z.name).join(', ')}.`,connected:r.connections_detected,solution:r.recommended_strategy.replace(/^Suggested strategy:\s*/i,''),included:[...arr(r.expected_outcomes).slice(0,3),...arr(r.existing_assets).slice(0,2)],neighborhoods:r.hot_spots,timeline:[{phase:'Validate with residents & agencies',when:'Next step'},{phase:'Pilot design',when:'After validation'},{phase:'Launch pilot',when:'To be scheduled'}],programs:arr(r.expected_outcomes).slice(0,2),coming_soon:['Community review','Pilot partners confirmed']}};const items=generated();items.unshift(publicProject);saveGenerated(items.slice(0,8));go('/public/project/'+id);};
-  }
-
-  function allProjects(){return [...generated(),...scenarios]}
-  function publicHome(){const projects=allProjects();app.innerHTML=`${header('public')}<section class="public-hero"><div class="shell"><div class="eyebrow">Resident experience</div><h1>What’s happening in Detroit?</h1><p style="color:var(--muted);font-size:17px;max-width:720px">See projects, programs and opportunities — plus a simple explanation of why each project is being explored.</p></div></section><main class="page" style="padding-top:20px"><div class="shell">${generated().length?`<div class="generated-banner"><b>Live demo:</b> ${generated().length} opportunity ${generated().length===1?'has':'have'} been generated from City Intelligence and published here in this browser.</div>`:''}<div class="filters" id="filters"><button class="filter active" data-cat="All">All</button>${['Environment','Education','Transportation','Community Spaces','Workforce','Community'].map(x=>`<button class="filter" data-cat="${x}">${x}</button>`).join('')}</div><div id="projects" class="project-grid"></div></div></main>${footer()}`;
-    const box=document.getElementById('projects'); const render=cat=>{const list=projects.filter(p=>cat==='All'||p.category===cat);box.innerHTML=list.map(p=>`<article class="project-card"><div class="project-band"></div><div class="project-body"><div class="project-meta"><span class="pill">${esc(p.category)}</span><span class="pill green">${esc(p.status||'Exploring')}</span>${p.generated?'<span class="pill orange">Generated live</span>':''}</div><h3>${esc(p.name)}</h3><p>${esc(p.resident_summary||p.result?.public_summary||'')}</p><a class="project-link" href="#/public/project/${esc(p.id)}">Why this project? →</a></div></article>`).join('')||'<div class="empty">No projects in this category.</div>';};render('All');document.querySelectorAll('.filter').forEach(b=>b.onclick=()=>{document.querySelectorAll('.filter').forEach(x=>x.classList.remove('active'));b.classList.add('active');render(b.dataset.cat)});
-  }
-
-  function publicProject(id){const p=allProjects().find(x=>x.id===id);if(!p){go('/public');return;}const v=p.publicView||{};app.innerHTML=`${header('public')}<main class="page"><div class="shell"><a class="nav-link" href="#/public">← All projects</a><div style="height:14px"></div><section class="result-hero" style="background:linear-gradient(135deg,#163b63,#2d8a65)"><div class="eyebrow">${p.generated?'Generated from City Intelligence':'Public project'}</div><h1>${esc(p.name)}</h1><p>${esc(p.resident_summary||p.result?.public_summary||'')}</p><div class="project-meta"><span class="source-note">${esc(p.category)}</span><span class="source-note">${esc(p.status||'Exploring')}</span></div></section>
-      <div class="public-detail" style="margin-top:18px"><div class="stack"><section class="card card-pad"><div class="section-title">Why this project?</div><p style="line-height:1.65;margin:0">${esc(v.why||'')}</p></section><section class="card card-pad"><div class="section-title">What residents experience today</div><p style="line-height:1.65;margin:0">${esc(v.today||'')}</p></section><section class="card card-pad"><div class="section-title">What One Detroit connected</div>${bullets(v.connected)}</section><section class="card card-pad"><div class="section-title">Proposed solution</div><p style="line-height:1.65;margin:0">${esc(v.solution||'')}</p></section><section class="card card-pad"><div class="section-title">What could be included</div>${bullets(v.included)}</section></div>
-      <aside class="stack"><section class="card card-pad"><div class="section-title">Where</div>${bullets(v.neighborhoods)}</section><section class="card card-pad"><div class="section-title">Timeline</div><div class="timeline">${arr(v.timeline).map(t=>`<div class="timeline-row"><b>${esc(t.when)}</b><span>${esc(t.phase)}</span></div>`).join('')}</div></section><section class="card card-pad"><div class="section-title">Programs</div>${bullets(v.programs)}</section><section class="card card-pad"><div class="section-title">Coming soon</div>${bullets(v.coming_soon)}</section></aside></div>
-      <div class="publish-bar"><div><b>Transparency by design.</b><p>This is an explainable project concept. Details can change after agency validation and community feedback.</p></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="button secondary" onclick="alert('Demo: resident follow/notification flow would connect here.')">Follow Project</button><button class="button green" onclick="alert('Demo: community feedback / participation flow would connect here.')">Get Involved</button></div></div>
-    </div></main>${footer()}`;
-  }
-
-  function render(){window.scrollTo(0,0);const p=route();if(p==='/')landing();else if(p==='/city')city();else if(p==='/city/opportunity')resultPage();else if(p==='/public')publicHome();else if(p.startsWith('/public/project/'))publicProject(decodeURIComponent(p.split('/').pop()));else landing();}
-  window.addEventListener('hashchange',render);render();
-})();
+const STATIC_PROJECTS=[
+ {name:'Detroit Mobility Learning Network',cat:'Workforce',status:'In Design',summary:'Hands-on technical learning that connects libraries, mobility skills and career pathways.'},
+ {name:'Cool Routes & Community Hubs',cat:'Environment',status:'Pilot Planned',summary:'Shade, cooling spaces and public facilities coordinated around extreme heat.'},
+ {name:'Digital Help Hours',cat:'Community',status:'Exploring',summary:'Youth-powered digital support for residents at neighborhood libraries.'},
+ {name:'Floodable Community Market',cat:'Community Spaces',status:'Exploring',summary:'A community market that also serves as stormwater infrastructure during heavy rain.'},
+ {name:'Complete Corridor Upgrade',cat:'Transportation',status:'In Design',summary:'Coordinate street, utility, transit, pedestrian and bike work in one construction cycle.'}
+];
+function renderPublic(){
+ const g=getGenerated();
+ shell(`<div class="public-head"><div><div class="eyebrow">PUBLIC PORTAL</div><h1>What’s happening across Detroit?</h1><p>See projects, programs and opportunities in plain language — including why the city is exploring them.</p></div><button class="btn ghost" data-go="city">City Intelligence</button></div>
+ ${g?`<section class="new-project"><div class="new-tag">NEW · GENERATED BY ONE DETROIT</div><div><h2>${escapeHtml(g.result.opportunity_name)}</h2><p>${escapeHtml(g.result.public_summary)}</p></div><button class="btn primary" data-go="project">View project →</button></section>`:''}
+ <section class="project-grid">${STATIC_PROJECTS.map(p=>`<article class="project-card"><div class="project-meta"><span>${p.cat}</span><span>${p.status}</span></div><h3>${p.name}</h3><p>${p.summary}</p><button class="text-btn">Learn more →</button></article>`).join('')}</section>`,'public'); bindNav();
+}
+function renderProject(){
+ const g=getGenerated(); if(!g)return go('public'); const r=g.result;
+ shell(`<button class="back" data-go="public">← Back to projects</button><section class="public-project"><div class="project-meta"><span>One Detroit generated project</span><span>Exploring</span></div><h1>${escapeHtml(r.opportunity_name)}</h1><p class="lead">${escapeHtml(r.public_summary)}</p><div class="public-story"><div><span>WHAT RESIDENTS EXPERIENCE</span><p>${escapeHtml(r.problem_summary)}</p></div><b>→</b><div><span>WHAT ONE DETROIT CONNECTED</span>${chips(g.signals.map(s=>s.label))}</div><b>→</b><div><span>PROPOSED SOLUTION</span><p>${escapeHtml(r.recommended_strategy)}</p></div></div>
+ <div class="detail-grid"><section class="panel"><h3>Why this project?</h3>${bullet(r.connections_detected)}</section><section class="panel"><h3>What could improve</h3>${bullet(r.expected_outcomes)}</section><section class="panel"><h3>Potential partners</h3>${chips([r.lead_agency,...(r.supporting_agencies||[]),...(r.partners||[])])}</section><section class="panel"><h3>Possible locations</h3>${chips(r.hot_spots)}</section></div><section class="resident-note"><b>Transparency note</b><p>This is an AI-assisted opportunity for human review, not a final city decision. Agencies, budget, locations and implementation details would need validation.</p></section></section>`,'project'); bindNav();
+}
+function bindNav(){ $$('[data-go]').forEach(el=>el.onclick=()=>go(el.dataset.go)); $$('[data-view]').forEach(el=>el.onclick=()=>go(el.dataset.view)); }
+function render(){const h=location.hash.replace('#',''); if(h==='city')renderCity(); else if(h==='result')renderResult(); else if(h==='public')renderPublic(); else if(h==='project')renderProject(); else renderHome();}
+window.addEventListener('hashchange',render); render();

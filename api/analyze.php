@@ -1,228 +1,127 @@
 <?php
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
-
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405);
-    echo json_encode(['ok' => false, 'error' => 'Method not allowed']);
-    exit;
+  http_response_code(405);
+  echo json_encode(['error' => 'Method not allowed']); exit;
 }
-
-$raw = file_get_contents('php://input');
-$input = json_decode($raw, true);
-if (!is_array($input)) {
-    http_response_code(400);
-    echo json_encode(['ok' => false, 'error' => 'Invalid JSON']);
-    exit;
-}
-
-$scenarioName = trim((string)($input['scenario_name'] ?? 'Custom Opportunity'));
-$category = trim((string)($input['category'] ?? 'Community'));
-$datasets = $input['datasets'] ?? [];
-$delivery = $input['delivery_context'] ?? [];
-$fallback = $input['fallback_result'] ?? null;
-
-if (!is_array($datasets) || count($datasets) < 2) {
-    http_response_code(422);
-    echo json_encode(['ok' => false, 'error' => 'Add at least two input signals before analysis.']);
-    exit;
-}
-
-$configPath = __DIR__ . '/../private/config.php';
+$configPath = dirname(__DIR__) . '/private/config.php';
 $config = file_exists($configPath) ? require $configPath : [];
-$apiKey = trim((string)($config['openai_api_key'] ?? getenv('OPENAI_API_KEY') ?: ''));
-$model = trim((string)($config['openai_model'] ?? 'gpt-4.1-mini'));
-
-function safe_string($v) {
-    return trim((string)$v);
+$apiKey = trim($config['openai_api_key'] ?? '');
+$model = trim($config['openai_model'] ?? 'gpt-4.1-mini');
+$body = json_decode(file_get_contents('php://input'), true);
+$signals = $body['signals'] ?? [];
+$context = trim($body['context'] ?? '');
+if (!is_array($signals) || count($signals) < 2) {
+  http_response_code(400);
+  echo json_encode(['error' => 'Select at least two signals.']); exit;
 }
 
-function build_fallback($scenarioName, $category, $datasets, $delivery, $fallback) {
-    if (is_array($fallback) && !empty($fallback['opportunity_name'])) {
-        return $fallback;
-    }
-    $names = array_values(array_filter(array_map(fn($d) => safe_string($d['name'] ?? ''), $datasets)));
-    $sources = array_values(array_filter(array_map(fn($d) => safe_string($d['source'] ?? ''), $datasets)));
-    $signals = implode(' + ', array_slice($names, 0, 4));
-    $budget = safe_string($delivery['budget'] ?? 'Budget to be validated with city teams');
-    $hotspot = safe_string($delivery['hotspots'] ?? 'Pilot location to be identified using neighborhood-level data');
-    return [
-        'opportunity_name' => $scenarioName ?: 'Cross-System Community Opportunity',
-        'problem_summary' => 'Multiple city signals appear to describe needs and assets that are currently managed separately. One Detroit flags them for coordinated human review.',
-        'connections_detected' => $names ?: ['Multiple independent city signals may be complementary'],
-        'recommended_strategy' => 'Suggested strategy: convene the relevant teams, validate the overlap, and design one pilot that combines the strongest complementary assets and needs.',
-        'lead_agency' => safe_string($delivery['lead_agency'] ?? 'Lead agency to be assigned'),
-        'supporting_agencies' => array_values(array_filter(array_map('trim', explode(',', safe_string($delivery['agencies'] ?? 'Relevant city departments'))))),
-        'partners' => array_values(array_filter(array_map('trim', explode(',', safe_string($delivery['partners'] ?? 'Community and institutional partners'))))),
-        'existing_assets' => $names,
-        'staffing_needs' => [safe_string($delivery['staffing'] ?? 'Staffing needs to be validated during pilot planning')],
-        'contractor_needs' => [safe_string($delivery['contractors'] ?? 'Contractor/vendor needs to be evaluated after scope validation')],
-        'estimated_budget' => ($budget ?: 'To be determined') . ' — Estimated pilot budget — illustrative',
-        'funding_options' => [safe_string($delivery['funding'] ?? 'Potential grants, city funds, and partner contributions')],
-        'hot_spots' => [$hotspot],
-        'expected_outcomes' => ['Reduce duplicated effort across systems', 'Create a testable multi-outcome pilot', 'Improve public visibility into why the project exists'],
-        'assumptions' => ['Input signals require human validation', 'Correlation does not establish causation', 'Agency capacity and legal requirements must be confirmed'],
-        'evidence_used' => $sources ?: ['User-provided demo inputs'],
-        'public_summary' => 'One Detroit connected several separate city signals and identified a possible coordinated project for city teams and residents to review.',
-    ];
-}
-
-$fallbackResult = build_fallback($scenarioName, $category, $datasets, $delivery, $fallback);
+$fallback = function() use ($signals, $context) {
+  $labels = array_map(fn($s) => $s['label'] ?? 'Signal', $signals);
+  $name = count($labels) >= 3 ? $labels[0] . ' + ' . $labels[1] . ' Opportunity' : 'Cross-System Opportunity';
+  return [
+    'source' => 'demo',
+    'result' => [
+      'opportunity_name' => $name,
+      'problem_summary' => 'One Detroit detected several signals from different systems that may create more value when addressed together.',
+      'connections_detected' => array_slice(array_map(fn($x) => 'Potential connection: ' . $x, $labels), 0, 5),
+      'recommended_strategy' => 'Suggested strategy: convene the relevant agencies and partners around a small pilot that combines the selected needs and assets, then measure outcomes before expansion.',
+      'lead_agency' => 'City innovation / coordinating office',
+      'supporting_agencies' => ['Relevant city department', 'Public service partner'],
+      'partners' => ['Community organization', 'Local employer or nonprofit'],
+      'existing_assets' => array_values(array_filter(array_map(fn($s) => ($s['kind'] ?? '') === 'asset' ? ($s['label'] ?? '') : null, $signals))),
+      'staffing_needs' => ['Pilot coordinator', 'Program support staff'],
+      'contractor_needs' => ['As-needed specialist support'],
+      'estimated_budget' => 'Estimated pilot budget — illustrative; requires city review',
+      'funding_options' => ['Existing program funds', 'Grant funding', 'Public-private partnership'],
+      'hot_spots' => ['Determine using selected signal geography'],
+      'expected_outcomes' => ['Reduce duplicated effort', 'Improve resident access', 'Create measurable cross-system value'],
+      'assumptions' => ['Selected signals require validation with source agencies', 'No causal relationship is assumed'],
+      'evidence_used' => $labels,
+      'public_summary' => 'Detroit is exploring a coordinated project that connects existing city resources and community needs so one intervention can create multiple benefits.',
+    ]
+  ];
+};
 
 if ($apiKey === '') {
-    echo json_encode([
-        'ok' => true,
-        'source' => 'mock',
-        'note' => 'Demo engine active — add private/config.php with OPENAI_API_KEY to enable live AI analysis.',
-        'result' => $fallbackResult,
-    ]);
-    exit;
+  echo json_encode($fallback(), JSON_UNESCAPED_SLASHES); exit;
 }
+
+$signalText = [];
+foreach ($signals as $s) {
+  $signalText[] = '- ' . ($s['label'] ?? 'Signal') . ' | category: ' . ($s['category'] ?? 'Other') . ' | type: ' . ($s['kind'] ?? 'need') . ' | source: ' . ($s['source'] ?? 'Unspecified') . ' | detail: ' . ($s['detail'] ?? '');
+}
+
+$system = <<<TXT
+You are the One Detroit Opportunity Engine, a municipal decision-support assistant.
+Your job is to discover useful cross-system opportunities from signals that normally live in different agencies, programs, or datasets.
+Do NOT merely summarize the inputs. Look for an unexpected but plausible coordinated intervention that could create multiple outcomes.
+Consider: location, timing, population served, demand, existing assets, agencies, employees, contractors, partners, budget feasibility, hot spots, sustainability and public transparency.
+Rules:
+- Never claim correlation proves causation.
+- Never invent legal authority, binding agency commitments, exact procurement facts, or verified budgets.
+- Any budget language must be clearly illustrative.
+- Make recommendations for human review, not final city decisions.
+- public_summary must be plain, welcoming resident language.
+TXT;
+
+$user = "Selected signals:\n" . implode("\n", $signalText) . "\n\nAdditional demo context:\n" . ($context ?: 'None') . "\n\nCreate one coordinated opportunity that meaningfully connects the signals.";
 
 $schema = [
-    'type' => 'object',
-    'additionalProperties' => false,
-    'required' => [
-        'opportunity_name','problem_summary','connections_detected','recommended_strategy','lead_agency',
-        'supporting_agencies','partners','existing_assets','staffing_needs','contractor_needs','estimated_budget',
-        'funding_options','hot_spots','expected_outcomes','assumptions','evidence_used','public_summary'
-    ],
-    'properties' => [
-        'opportunity_name' => ['type' => 'string'],
-        'problem_summary' => ['type' => 'string'],
-        'connections_detected' => ['type' => 'array', 'items' => ['type' => 'string']],
-        'recommended_strategy' => ['type' => 'string'],
-        'lead_agency' => ['type' => 'string'],
-        'supporting_agencies' => ['type' => 'array', 'items' => ['type' => 'string']],
-        'partners' => ['type' => 'array', 'items' => ['type' => 'string']],
-        'existing_assets' => ['type' => 'array', 'items' => ['type' => 'string']],
-        'staffing_needs' => ['type' => 'array', 'items' => ['type' => 'string']],
-        'contractor_needs' => ['type' => 'array', 'items' => ['type' => 'string']],
-        'estimated_budget' => ['type' => 'string'],
-        'funding_options' => ['type' => 'array', 'items' => ['type' => 'string']],
-        'hot_spots' => ['type' => 'array', 'items' => ['type' => 'string']],
-        'expected_outcomes' => ['type' => 'array', 'items' => ['type' => 'string']],
-        'assumptions' => ['type' => 'array', 'items' => ['type' => 'string']],
-        'evidence_used' => ['type' => 'array', 'items' => ['type' => 'string']],
-        'public_summary' => ['type' => 'string'],
-    ],
+  'type' => 'object', 'additionalProperties' => false,
+  'required' => ['opportunity_name','problem_summary','connections_detected','recommended_strategy','lead_agency','supporting_agencies','partners','existing_assets','staffing_needs','contractor_needs','estimated_budget','funding_options','hot_spots','expected_outcomes','assumptions','evidence_used','public_summary'],
+  'properties' => [
+    'opportunity_name'=>['type'=>'string'], 'problem_summary'=>['type'=>'string'],
+    'connections_detected'=>['type'=>'array','items'=>['type'=>'string']],
+    'recommended_strategy'=>['type'=>'string'], 'lead_agency'=>['type'=>'string'],
+    'supporting_agencies'=>['type'=>'array','items'=>['type'=>'string']],
+    'partners'=>['type'=>'array','items'=>['type'=>'string']],
+    'existing_assets'=>['type'=>'array','items'=>['type'=>'string']],
+    'staffing_needs'=>['type'=>'array','items'=>['type'=>'string']],
+    'contractor_needs'=>['type'=>'array','items'=>['type'=>'string']],
+    'estimated_budget'=>['type'=>'string'],
+    'funding_options'=>['type'=>'array','items'=>['type'=>'string']],
+    'hot_spots'=>['type'=>'array','items'=>['type'=>'string']],
+    'expected_outcomes'=>['type'=>'array','items'=>['type'=>'string']],
+    'assumptions'=>['type'=>'array','items'=>['type'=>'string']],
+    'evidence_used'=>['type'=>'array','items'=>['type'=>'string']],
+    'public_summary'=>['type'=>'string']
+  ]
 ];
 
-$systemPrompt = <<<'PROMPT'
-You are the One Detroit Opportunity Engine, a civic decision-support system.
-
-Your task is to analyze city signals that normally live in separate systems and identify ONE useful cross-system opportunity that would be easy to miss if each dataset were reviewed in isolation.
-
-Look for:
-- unrelated needs that could be addressed together;
-- underused public assets that could serve another purpose;
-- city projects that could be coordinated;
-- complementary agency capabilities;
-- opportunities where one intervention creates multiple outcomes;
-- realistic pilot hot spots based only on the provided context;
-- staffing, contractor, partner, timing and funding considerations.
-
-Rules:
-- Do not claim causation from correlation.
-- Do not invent exact legal requirements or agency commitments.
-- Do not invent precise local facts that were not provided.
-- Any budget must be explicitly labeled "Estimated pilot budget — illustrative".
-- If exact budget data is unavailable, give a clearly illustrative range or say it requires validation.
-- Frame agencies, partners and strategies as suggested or potential.
-- Human review is required before implementation.
-- Keep public_summary plain, useful, and resident-friendly.
-- Return only the requested structured output.
-PROMPT;
-
-$datasetLines = [];
-foreach ($datasets as $d) {
-    $datasetLines[] = '- ' . safe_string($d['name'] ?? 'Signal') .
-        ' | source: ' . safe_string($d['source'] ?? 'Unspecified') .
-        ' | detail: ' . safe_string($d['detail'] ?? '');
-}
-
-$deliveryLines = [];
-foreach ($delivery as $k => $v) {
-    if (safe_string($v) !== '') $deliveryLines[] = '- ' . $k . ': ' . safe_string($v);
-}
-
-$userPrompt = "Working scenario: {$scenarioName}\nCategory: {$category}\n\nIndependent inputs:\n" . implode("\n", $datasetLines) .
-    "\n\nDelivery / feasibility context:\n" . (count($deliveryLines) ? implode("\n", $deliveryLines) : '- No extra constraints supplied') .
-    "\n\nIdentify one cross-system opportunity. The result should explain why the combination is useful, what would need to happen, and what a resident-facing summary should say.";
-
 $payload = [
-    'model' => $model,
-    'store' => false,
-    'input' => [
-        ['role' => 'system', 'content' => $systemPrompt],
-        ['role' => 'user', 'content' => $userPrompt],
-    ],
-    'text' => [
-        'format' => [
-            'type' => 'json_schema',
-            'name' => 'one_detroit_opportunity',
-            'strict' => true,
-            'schema' => $schema,
-        ],
-    ],
+  'model' => $model,
+  'input' => [
+    ['role'=>'system','content'=>$system],
+    ['role'=>'user','content'=>$user]
+  ],
+  'text' => ['format'=>['type'=>'json_schema','name'=>'one_detroit_opportunity','strict'=>true,'schema'=>$schema]]
 ];
 
 $ch = curl_init('https://api.openai.com/v1/responses');
 curl_setopt_array($ch, [
-    CURLOPT_POST => true,
-    CURLOPT_RETURNTRANSFER => true,
-    CURLOPT_HTTPHEADER => [
-        'Content-Type: application/json',
-        'Authorization: Bearer ' . $apiKey,
-    ],
-    CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
-    CURLOPT_CONNECTTIMEOUT => 10,
-    CURLOPT_TIMEOUT => 45,
+  CURLOPT_RETURNTRANSFER => true,
+  CURLOPT_POST => true,
+  CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'Authorization: Bearer ' . $apiKey],
+  CURLOPT_POSTFIELDS => json_encode($payload),
+  CURLOPT_TIMEOUT => 45,
 ]);
-$responseBody = curl_exec($ch);
-$httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-$curlError = curl_error($ch);
+$response = curl_exec($ch);
+$status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+$error = curl_error($ch);
 curl_close($ch);
-
-if ($responseBody === false || $httpCode < 200 || $httpCode >= 300) {
-    echo json_encode([
-        'ok' => true,
-        'source' => 'mock',
-        'note' => 'Live AI was unavailable; demo fallback used.' . ($httpCode ? ' HTTP ' . $httpCode : '') . ($curlError ? ' ' . $curlError : ''),
-        'result' => $fallbackResult,
-    ]);
-    exit;
+if ($response === false || $status < 200 || $status >= 300) {
+  $fb = $fallback();
+  $fb['note'] = 'Live AI unavailable; demo fallback used.' . ($error ? ' ' . $error : '');
+  echo json_encode($fb, JSON_UNESCAPED_SLASHES); exit;
 }
-
-$decoded = json_decode($responseBody, true);
-$text = '';
-if (isset($decoded['output_text']) && is_string($decoded['output_text'])) {
-    $text = $decoded['output_text'];
-} elseif (isset($decoded['output']) && is_array($decoded['output'])) {
-    foreach ($decoded['output'] as $item) {
-        if (($item['type'] ?? '') !== 'message' || !isset($item['content']) || !is_array($item['content'])) continue;
-        foreach ($item['content'] as $part) {
-            if (($part['type'] ?? '') === 'output_text' && isset($part['text'])) {
-                $text .= (string)$part['text'];
-            }
-        }
-    }
+$data = json_decode($response, true);
+$text = $data['output_text'] ?? '';
+if (!$text && isset($data['output'][0]['content'][0]['text'])) $text = $data['output'][0]['content'][0]['text'];
+$result = json_decode($text, true);
+if (!is_array($result)) {
+  $fb = $fallback(); $fb['note'] = 'AI response could not be parsed; demo fallback used.';
+  echo json_encode($fb, JSON_UNESCAPED_SLASHES); exit;
 }
-
-$parsed = json_decode($text, true);
-if (!is_array($parsed) || empty($parsed['opportunity_name'])) {
-    echo json_encode([
-        'ok' => true,
-        'source' => 'mock',
-        'note' => 'Live AI returned an unexpected format; demo fallback used.',
-        'result' => $fallbackResult,
-    ]);
-    exit;
-}
-
-echo json_encode([
-    'ok' => true,
-    'source' => 'openai',
-    'model' => $model,
-    'result' => $parsed,
-], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+echo json_encode(['source'=>'openai','result'=>$result], JSON_UNESCAPED_SLASHES);
